@@ -1,0 +1,133 @@
+---
+title: "Lumina AI session settings and Streamlit options"
+description: "Configure Lumina AI's session defaults, Streamlit page settings, and application behavior through code and the built-in settings page."
+---
+
+Lumina AI's runtime behavior is controlled through two layers of configuration: Streamlit's page-level settings declared at the top of `Main.py`, and session state defaults initialized when the app first loads. A third layer — NLP confidence thresholds and context window size — is defined in `chatbot.py` and controls how the neural network's predictions are interpreted. Understanding these settings lets you tune the app's appearance, initial gamification state, and chatbot sensitivity without modifying the core logic.
+
+## Streamlit page config
+
+The following call at the top of `Main.py` configures Streamlit's built-in page properties:
+
+```python
+st.set_page_config(
+    page_title="Lumina AI",
+    page_icon="✦",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+```
+
+| Setting | Value | Effect |
+|---------|-------|--------|
+| `page_title` | `"Lumina AI"` | Text shown in the browser tab and window title bar. |
+| `page_icon` | `"✦"` | Favicon shown in the browser tab. Accepts an emoji or a path to an image file. |
+| `layout` | `"wide"` | Uses the full browser width instead of the centered narrow layout. Required for the side-by-side chat and subjects panel. |
+| `initial_sidebar_state` | `"expanded"` | The sidebar is open when the page first loads. Set to `"collapsed"` to start with it hidden. |
+
+`st.set_page_config` must be the first Streamlit call in `Main.py`. Moving it below any other `st.*` call will cause a runtime error.
+
+## Session state defaults
+
+The `init_session()` function in `Main.py` initializes keys in `st.session_state` that are not already set. This means the values below are only applied on the very first load of a session — they are not reset on every page interaction.
+
+```python
+def init_session():
+    defaults = {
+        "messages": [],
+        "first_msg": True,
+        "current_page": "Chat",
+        "show_materias": False,
+        "racha": 12,
+        "xp": 680,
+        "nivel": "Bronce",
+        "last_activity_date": date.today().isoformat(),
+        "pdf_text": "",
+        "pdf_name": None,
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+```
+
+The configurable defaults that affect visible behavior are:
+
+<ResponseField name="racha" type="number" default="12">
+  Starting value for the student's study streak counter, displayed in the sidebar as "días racha". Set to `0` to start all new sessions at zero.
+</ResponseField>
+
+<ResponseField name="xp" type="number" default="680">
+  Starting XP (experience points). Each message sent to the chatbot adds 10 XP. XP determines the student's level tier:
+
+  | XP range | Level |
+  |----------|-------|
+  | 0 – 999 | Bronce |
+  | 1000 – 1999 | Plata |
+  | 2000 – 3499 | Oro |
+  | 3500 – 5499 | Platino |
+  | 5500+ | Diamante |
+</ResponseField>
+
+<ResponseField name="nivel" type="string" default='"Bronce"'>
+  Starting level label shown in the sidebar XP progress bar. This is recalculated automatically after every message based on the current `xp` value, so this default only affects the very first render before the first message is sent.
+</ResponseField>
+
+<ResponseField name="last_activity_date" type="string" default="today's date (ISO 8601)">
+  The date of the student's last activity, stored as an ISO 8601 string (e.g. `"2026-05-11"`). Used by `update_streak_and_xp()` to decide whether to increment or reset the streak when a new message is sent.
+</ResponseField>
+
+<ResponseField name="first_msg" type="boolean" default="true">
+  When `true`, Lumina AI injects a welcome message from the assistant the first time the Chat page renders. Set to `false` to suppress the welcome message and start with an empty chat history.
+</ResponseField>
+
+## In-app settings page
+
+The sidebar navigation includes an "Ajustes" (Settings) page, accessible by clicking **✦ Ajustes** in the sidebar. The current implementation provides:
+
+- **Theme selector** — a `st.selectbox` with options `"Galaxia"` and `"Noche"`. The selection is not yet wired to a theme-switching function; it saves to session state when the Save button is clicked.
+- **Notifications toggle** — a `st.checkbox` for enabling or disabling notifications. Also saved to session state only.
+- **Save button** — clicking **Guardar** calls `st.success("Preferencias guardadas")` and stores the current widget values.
+
+```python
+elif current == "Ajustes":
+    st.title(" Ajustes")
+    st.selectbox("Tema", ["Galaxia", "Noche"])
+    st.checkbox("Notificaciones")
+    if st.button("Guardar"):
+        st.success("Preferencias guardadas")
+```
+
+The Ajustes page is a placeholder. Theme switching and notification handling require additional implementation.
+
+## NLP thresholds
+
+Two confidence thresholds in `chatbot.py` control how the neural network's output is interpreted:
+
+```python
+_THRESHOLD_HIGH = 0.60
+_THRESHOLD_LOW  = 0.35
+```
+
+<ResponseField name="_THRESHOLD_HIGH" type="float" default="0.60">
+  The minimum confidence score for the model's top prediction to be accepted directly. If any intent class scores above this value, it is used without consulting the keyword fallback. Raising this value makes the bot stricter — it will fall back to keywords more often. Lowering it makes it more permissive but may increase false matches.
+</ResponseField>
+
+<ResponseField name="_THRESHOLD_LOW" type="float" default="0.35">
+  The lower bound used as a last resort after the keyword fallback also fails to match. Intents that exceed this value but not `_THRESHOLD_HIGH` are accepted only when no keyword match exists. Predictions below both thresholds result in a contextual fallback message.
+</ResponseField>
+
+## Context window
+
+`chatbot.py` maintains a short-term memory of the last three recognized intents using a `deque` with a fixed maximum length:
+
+```python
+_context: deque[str] = deque(maxlen=3)
+```
+
+When the bot cannot match a message, `_build_fallback()` checks `_context[-1]` (the most recently matched intent) and appends a subject-specific follow-up suggestion to the generic fallback response. For example, if the last matched intent was `matematicas_general`, the fallback will include a prompt to continue with mathematics.
+
+To change the context window size, edit the `maxlen` argument. A larger value retains more history; `maxlen=1` only remembers the immediately preceding intent.
+
+<Info>
+  Streamlit apps are stateless by default. Every value stored in `st.session_state` — including messages, XP, streak, and the uploaded PDF text — is lost when the user closes the browser tab, refreshes the page, or the server restarts. There is no built-in persistence between sessions. To retain data across sessions, you would need to integrate an external store such as a database or a file-based cache.
+</Info>

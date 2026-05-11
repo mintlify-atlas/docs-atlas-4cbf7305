@@ -1,0 +1,91 @@
+---
+title: "Neural network model architecture and inference"
+description: "Lumina AI uses a 4-layer Keras Sequential model with Dropout regularization to classify student text input into intent categories at inference time."
+---
+
+Lumina AI classifies student questions using a feedforward neural network built with Keras. The model takes a bag-of-words vector as input and outputs a probability distribution over all known intent tags.
+
+## Model architecture
+
+The model is defined in `training_chatbot.py` as a `Sequential` network with four layers:
+
+```python training_chatbot.py
+model = Sequential([
+    Dense(256, input_shape=(len(train_x[0]),), activation='relu'),
+    Dropout(0.5),
+    Dense(128, activation='relu'),
+    Dropout(0.4),
+    Dense(64, activation='relu'),
+    Dropout(0.3),
+    Dense(len(train_y[0]), activation='softmax'),
+])
+```
+
+| Layer | Units | Activation | Dropout |
+|-------|-------|-----------|---------|
+| Input | 256 | ReLU | 0.5 |
+| Hidden 1 | 128 | ReLU | 0.4 |
+| Hidden 2 | 64 | ReLU | 0.3 |
+| Output | `len(classes)` | Softmax | — |
+
+## Training configuration
+
+```python training_chatbot.py
+sgd = SGD(learning_rate=0.005, momentum=0.9, nesterov=True)
+model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+model.fit(train_x, train_y, epochs=300, batch_size=8, verbose=1)
+```
+
+- **Optimizer:** SGD with Nesterov momentum
+- **Loss function:** Categorical cross-entropy
+- **Epochs:** 300
+- **Batch size:** 8
+
+## Text preprocessing
+
+Before the input reaches the model, `chatbot.py` runs a normalization pipeline:
+
+```python chatbot.py
+def _remove_accents(text: str) -> str:
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+def _normalize(text: str) -> str:
+    text = text.lower().strip()
+    text = _remove_accents(text)
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text
+
+def clean_up_sentence(sentence: str) -> list[str]:
+    tokens = nltk.word_tokenize(_normalize(sentence))
+    return [lemmatizer.lemmatize(w) for w in tokens]
+
+def bag_of_words(sentence: str) -> np.ndarray:
+    tokens = clean_up_sentence(sentence)
+    bag = [0] * len(words)
+    for token in tokens:
+        for i, word in enumerate(words):
+            if word == token:
+                bag[i] = 1
+    return np.array(bag)
+```
+
+The pipeline: lowercase → remove accents → strip punctuation → tokenize → lemmatize → binary vector.
+
+## Inference thresholds
+
+```python chatbot.py
+_THRESHOLD_HIGH = 0.60
+_THRESHOLD_LOW  = 0.35
+```
+
+- Above `0.60`: the prediction is used directly
+- Between `0.35` and `0.60`: used as a last resort after keyword fallback fails
+- Below `0.35`: treated as no match
+
+<Info>
+  The model file is saved in HDF5 format as `chatbot_model.h5`. It is loaded at startup with `load_model('chatbot_model.h5', compile=False)`.
+</Info>

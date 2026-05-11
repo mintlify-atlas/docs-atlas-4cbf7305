@@ -1,0 +1,136 @@
+---
+title: "AI chat interface: voice, PDF, and quick actions"
+description: "Lumina AI's chat page lets students ask questions by text or voice, upload PDFs for context-aware answers, and use quick-action shortcuts."
+---
+
+The Chat page is the heart of Lumina AI. It gives students a single, conversational space to ask academic questions, get explanations, and access study tools—without navigating away from the conversation. The interface is deliberately minimal: a dark galaxy-themed background with animated twinkling stars, a left sidebar for navigation and stats, and a centered message thread that keeps the focus on learning.
+
+## Chat interface overview
+
+When you open Lumina AI, the Chat page loads immediately. The layout has three zones:
+
+- **Galaxy background** — A deep-space visual with 140 procedurally placed stars that twinkle using CSS animations. If `assets/galaxy.png` is present it is loaded as a base64 background image; otherwise a CSS radial gradient fallback is used.
+- **Left sidebar** — Persistent across all pages. Shows the Lumina robot avatar, navigation buttons, quick-action shortcuts, gamification stats, and the PDF upload panel.
+- **Chat thread** — A scrollable message area (`max-width: 980px`, centered) with animated message bubbles. Assistant messages appear on the left with an avatar; user messages appear on the right in a purple gradient bubble.
+
+Each message bubble displays the message content and a **timestamp** formatted as `H:MM AM/PM`. User bubbles show a double-checkmark (`✓✓`) after the timestamp.
+
+<Note>
+Lumina AI responds entirely in Spanish. All built-in prompts, quick actions, and chatbot responses are in Spanish (es-ES). The voice recognition engine is also configured for Spanish.
+</Note>
+
+## Text input
+
+Students type questions in a fixed bottom input bar that stays visible as the conversation scrolls. The bar is styled as a pill-shaped field (`border-radius: 56px`) anchored at the bottom center of the viewport (`position: fixed; bottom: 24px`). It is limited to `max-width: 880px` and spans `90%` of the viewport width on desktop, adjusting to `95%` on mobile.
+
+Pressing Enter or clicking the send button calls `send_message()`, which:
+
+1. Checks for a PDF context first (see [PDF context](#pdf-context) below).
+2. Falls back to `get_response()` from the intent-matching system.
+3. Appends both the user message and the assistant reply to `st.session_state.messages`.
+4. Awards XP and updates the streak via `update_streak_and_xp()`.
+
+Each message stored in session state has the following structure:
+
+```python
+{
+    "role": "user" | "assistant",
+    "content": "message text",
+    "ts": "3:45 PM"   # from now_time()
+}
+```
+
+## Voice input
+
+Students can speak their questions instead of typing them. The `transcribe_audio()` function in `Main.py` handles audio-to-text conversion using the **Google Speech Recognition** API with the `es-ES` locale.
+
+```python
+text = recognizer.recognize_google(audio_data, language="es-ES")
+```
+
+The function uses **pydub** to convert the incoming audio (WebM format from the browser) to WAV before passing it to the recognizer. If pydub is not installed, it falls back to writing the raw file to a temporary `.webm` file and attempting recognition directly.
+
+<Warning>
+Voice input requires **ffmpeg** to be installed on the server. Without it, pydub cannot decode audio formats and transcription will fail. Lumina AI shows a warning message directing users to install ffmpeg from https://ffmpeg.org. Until ffmpeg is available, use the text input instead.
+</Warning>
+
+**Dependencies for voice input:**
+
+```txt
+SpeechRecognition
+pydub
+ffmpeg  # system dependency, not a Python package
+```
+
+## PDF context
+
+Students can upload a PDF document to ground Lumina AI's answers in their own study material. The PDF panel lives inside a collapsible `📄 Cargar PDF` expander in the left sidebar.
+
+### How it works
+
+<Steps>
+  <Step title="Upload a PDF">
+    Click the expander in the sidebar and select a `.pdf` file. Lumina reads it with `extract_text_from_pdf()`, which uses **PyPDF2** to extract text from every page and concatenate the results.
+  </Step>
+  <Step title="Ask a question">
+    Type or speak your question normally. Before querying the chatbot, `send_message()` calls `query_pdf()` to search the extracted text.
+  </Step>
+  <Step title="Get a grounded answer">
+    If a relevant passage is found, Lumina responds with that excerpt instead of the standard chatbot response. The reply is prefixed with `📄 Según tu PDF:`.
+  </Step>
+</Steps>
+
+### Relevance scoring
+
+`query_pdf()` splits the PDF text into paragraphs (separated by blank lines) and scores each one by counting how many words from the user's question appear in the paragraph. A paragraph must score **at least 2 keyword matches** to be considered relevant. The highest-scoring paragraph wins.
+
+```python
+score = sum(1 for w in q_words if w in para.lower())
+if score > best_score and score >= 2:
+    best_score = score
+    best_para = para.strip()
+```
+
+If the winning paragraph exceeds 500 characters, it is truncated with an ellipsis. **PDF answers take priority over chatbot responses**—if a PDF is loaded and a relevant passage is found, the neural network is never consulted for that message.
+
+To remove the PDF context, click the **Limpiar** button that appears below the filename in the sidebar.
+
+## Quick actions
+
+The sidebar includes six one-tap prompts that send a pre-written message to the chat, triggering an immediate response from the chatbot. These are useful for standard study tasks without having to type a full question.
+
+<CardGroup cols={2}>
+  <Card title="Explícame esto con una analogía" icon="lightbulb">
+    Ask Lumina to explain the current topic using an everyday comparison or metaphor.
+  </Card>
+  <Card title="Dame ejemplos prácticos" icon="flask">
+    Request concrete, real-world examples to illustrate an abstract concept.
+  </Card>
+  <Card title="Haz un resumen claro del tema" icon="align-left">
+    Generate a concise summary of whatever topic is being discussed.
+  </Card>
+  <Card title="Hazme un quiz sobre esto" icon="circle-help">
+    Start a quiz session to test your understanding of the topic.
+  </Card>
+  <Card title="Dame técnicas de memorización" icon="brain">
+    Get science-backed memorization strategies such as spaced repetition and the memory palace.
+  </Card>
+  <Card title="Dame motivación para estudiar" icon="star">
+    Receive an encouraging message to help you push through a difficult study session.
+  </Card>
+</CardGroup>
+
+Each button calls `send_message()` with the corresponding prompt string, so the interaction is identical to typing that prompt manually.
+
+## Text-to-speech
+
+Every assistant message has a **♪** button below the bubble. Clicking it generates an MP3 audio file from the message text using **gTTS** (Google Text-to-Speech) with `lang="es"`, then plays it inline via Streamlit's audio widget.
+
+```python
+from gtts import gTTS
+
+tts = gTTS(text, lang="es")
+tts.save(fp.name)
+```
+
+The audio file is written to a temporary `.mp3` file, which is passed to `st.audio()` with `format="audio/mp3"`. Each message gets its own button keyed by message index (`speak_{idx}`), so multiple messages can be played without conflict.

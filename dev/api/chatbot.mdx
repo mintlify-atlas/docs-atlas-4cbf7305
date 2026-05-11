@@ -1,0 +1,108 @@
+---
+title: "chatbot.py — inference engine API reference"
+description: "Reference for chatbot.py's public functions: predict_class, get_response, bag_of_words, clean_up_sentence, and the keyword fallback system."
+---
+
+`chatbot.py` is the ML inference engine for Lumina AI. It loads the trained model (`chatbot_model.h5`), vocabulary (`words.pkl`), and intent list (`classes.pkl`) at import time, then exposes functions for classifying user input and retrieving responses. You can import it directly to use Lumina's intent classification in your own scripts, outside of the Streamlit interface.
+
+## predict_class
+
+Classifies a sentence and returns the matched intents ranked by confidence.
+
+```python
+predict_class(sentence: str) -> list[dict]
+```
+
+<ParamField path="sentence" type="string" required>
+  Raw student input text. The function normalizes, tokenizes, and lemmatizes this string internally before classification.
+</ParamField>
+
+**Returns** a list of dictionaries, each with:
+
+- `"intent"` — the matched intent tag string (e.g., `"algebra"`, `"saludo"`)
+- `"probability"` — string representation of the raw softmax probability (e.g., `"0.8731452"`)
+
+The list is sorted by probability in descending order. Returns an empty list if no intent clears the minimum threshold and no keyword match is found.
+
+**Classification strategy:** `predict_class` uses a three-stage cascade:
+
+1. **Neural network with high threshold** (`0.60`) — if any class exceeds this confidence, results are returned immediately.
+2. **Keyword fallback** — if no class exceeds the high threshold, the normalized sentence is scanned against `_KEYWORD_MAP`. A match returns a single-item list with probability `"0.50"`.
+3. **Neural network with low threshold** (`0.35`) — if keywords also fail, any class exceeding the low threshold is returned as a best-effort result.
+
+**Side effect:** the matched intent tag is appended to the module-level `_context` deque (max length 3), which `get_response` uses to generate contextual fallback messages.
+
+---
+
+## get_response
+
+Retrieves a response string for the top-ranked intent from `predict_class`.
+
+```python
+get_response(intents_list: list[dict], intents_json: dict) -> str
+```
+
+<ParamField path="intents_list" type="list[dict]" required>
+  The output from `predict_class()`. The function reads only the first element (highest-confidence intent). Pass an empty list to trigger a contextual fallback response.
+</ParamField>
+
+<ParamField path="intents_json" type="dict" required>
+  The parsed contents of `respuestas.json`. Must contain an `"intents"` key whose value is a list of intent objects, each with `"tag"` and `"responses"` fields.
+</ParamField>
+
+**Returns** a randomly selected response string from the matched intent's `responses` list. If `intents_list` is empty, or if no intent in `intents_json` matches the tag, returns a contextual fallback string generated from the recent conversation history in `_context`.
+
+---
+
+## bag_of_words
+
+Converts a sentence to a binary vector over the full vocabulary.
+
+```python
+bag_of_words(sentence: str) -> np.ndarray
+```
+
+<ParamField path="sentence" type="string" required>
+  Text to vectorize. Internally calls `clean_up_sentence` to tokenize and lemmatize before comparison.
+</ParamField>
+
+**Returns** a binary `numpy` array of length `len(words)`, where index `i` is `1` if the corresponding vocabulary token appears in the sentence and `0` otherwise.
+
+---
+
+## clean_up_sentence
+
+Tokenizes and lemmatizes a sentence for vocabulary lookup.
+
+```python
+clean_up_sentence(sentence: str) -> list[str]
+```
+
+<ParamField path="sentence" type="string" required>
+  Raw text to process. Normalization (accent removal, punctuation stripping, lowercasing) is applied before tokenization.
+</ParamField>
+
+**Returns** a list of lemmatized token strings. For example, `"ecuaciones de primer grado"` becomes `["ecuacion", "de", "primer", "grado"]`.
+
+---
+
+## Usage example
+
+The typical call pattern is to run `predict_class` on the user input, then pass the result to `get_response` along with the loaded intents data:
+
+```python
+import json
+from chatbot import predict_class, get_response
+
+with open('respuestas.json', encoding='utf-8') as f:
+    intents_json = json.load(f)
+
+sentence = "Explícame las ecuaciones de primer grado"
+intents_list = predict_class(sentence)
+response = get_response(intents_list, intents_json)
+print(response)
+```
+
+<Note>
+`chatbot.py` loads `chatbot_model.h5`, `words.pkl`, and `classes.pkl` at module import time. All three files must be present in the working directory before importing, or the module will raise a `FileNotFoundError`. Run `training_chatbot.py` first if these files do not exist.
+</Note>

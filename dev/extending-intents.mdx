@@ -1,0 +1,90 @@
+---
+title: "Add new intents and expand Lumina AI's knowledge"
+description: "Extend Lumina AI by adding new intent objects to respuestas.json and updating the keyword map in chatbot.py for fallback coverage."
+---
+
+Lumina AI's knowledge is defined by the intents in `respuestas.json`, which the neural network learns during training. You can expand what the chatbot understands by adding new intent objects to that file. For topics where the model may be uncertain, you can also add keyword entries to the `_KEYWORD_MAP` in `chatbot.py` to provide a rule-based fallback that works without retraining.
+
+## Two-part approach
+
+There are two complementary mechanisms for teaching Lumina AI a new topic:
+
+1. **Add to `respuestas.json`** — trains the neural network to recognize patterns semantically
+2. **Add to `_KEYWORD_MAP` in `chatbot.py`** — provides keyword-based fallback coverage without retraining
+
+You should always do part one. Part two is optional but recommended for topics where users may phrase questions in unexpected ways.
+
+## Part 1: Adding to respuestas.json
+
+Each intent is a JSON object with three fields: `tag` (a unique identifier), `patterns` (example user inputs), and `responses` (the chatbot's reply options).
+
+Here is a complete example intent for Python programming:
+
+```json
+{
+  "tag": "programacion_python",
+  "patterns": [
+    "Cómo aprender Python",
+    "Qué es Python",
+    "Sintaxis de Python",
+    "Bucles en Python",
+    "Cómo usar funciones en Python",
+    "Python para principiantes",
+    "Listas en Python",
+    "Cómo instalar Python"
+  ],
+  "responses": [
+    "Python es uno de los lenguajes de programación más populares del mundo 🐍. Su sintaxis es clara y cercana al lenguaje natural, lo que lo hace ideal para comenzar. Para aprender Python, te recomiendo: 1) Instala Python desde python.org. 2) Practica con ejercicios básicos: variables, bucles `for` y `while`, funciones y listas. 3) Usa plataformas como Replit o Google Colab para practicar sin instalar nada. ¿Qué concepto de Python quieres explorar primero?",
+    "Python es un lenguaje de propósito general con una sintaxis muy legible. Sus elementos clave son: variables (`x = 10`), listas (`[1, 2, 3]`), bucles (`for i in range(10)`), funciones (`def mi_funcion():`) y condiciones (`if`, `elif`, `else`). ¿Quieres que te explique alguno de estos conceptos con ejemplos prácticos?"
+  ]
+}
+```
+
+Add this object inside the `"intents"` array in `respuestas.json`, then [retrain the model](/dev/training).
+
+**Tips for writing effective intents:**
+
+- Use at least 6–8 varied patterns per intent. The more diverse the phrasing, the better the model generalizes.
+- Write responses in Spanish to match the rest of the chatbot's language.
+- Keep the `tag` value short, lowercase, and descriptive — you will reuse it in `_KEYWORD_MAP`.
+- Vary pattern length and structure: include short questions ("Qué es Python"), longer questions ("Cómo usar funciones en Python"), and fragment-style inputs ("Bucles en Python").
+
+## Part 2: Updating _KEYWORD_MAP in chatbot.py
+
+`_KEYWORD_MAP` in `chatbot.py` is a dictionary that maps intent tags to lists of keyword strings. When the neural network's confidence falls below the acceptance threshold, the chatbot scans the normalized user input for these keywords as a fallback.
+
+To add a keyword entry for the new `programacion_python` intent, open `chatbot.py` and add a line to the `_KEYWORD_MAP` dictionary:
+
+```python
+_KEYWORD_MAP: dict[str, list[str]] = {
+    # ... existing entries ...
+    "programacion_python": ["python", "aprender python", "sintaxis python", "bucles python", "pip install"],
+}
+```
+
+The keyword matching uses normalized text (lowercase, no accents, no punctuation), so you do not need to add accent variants. This fallback activates without retraining — changes to `_KEYWORD_MAP` take effect the next time the application starts.
+
+<Note>
+The tag name in `respuestas.json` must exactly match the key you use in `_KEYWORD_MAP`. A mismatch means the keyword fallback will fire but `get_response` will not find a matching intent, causing a generic fallback response instead.
+</Note>
+
+## Retrain after changes
+
+After editing `respuestas.json`, you must retrain the model for the neural network to recognize the new intent. See the [retraining guide](/dev/training) for the full procedure.
+
+Changes to `_KEYWORD_MAP` alone do not require retraining — restart the Streamlit app and they take effect immediately.
+
+## Testing your new intent
+
+Once you have retrained and restarted the app, verify the new intent works by typing one of your new patterns directly into the chat. For example:
+
+```
+Cómo aprender Python
+```
+
+The chatbot should respond with one of the replies you defined in `responses`. If it returns a generic fallback instead, check that:
+
+- The intent was saved correctly in `respuestas.json` with valid JSON syntax
+- You reran `training_chatbot.py` after saving
+- The `tag` in `respuestas.json` matches the key in `_KEYWORD_MAP` (if you added one)
+- The app was restarted after retraining

@@ -1,0 +1,108 @@
+---
+title: "Customize Lumina AI assets and visual appearance"
+description: "Replace the robot avatar and galaxy background image in the assets/ folder to give Lumina AI your own visual identity and branding."
+---
+
+Lumina AI ships with two image assets that define its visual identity: a robot avatar displayed throughout the interface and a fullscreen galaxy background. Both files live in the `assets/` directory at the project root. Replacing them with your own images — while keeping the exact filenames — is all that is needed to rebrand the application.
+
+## Assets directory structure
+
+```
+assets/
+├── robot_girl.png   — sidebar avatar and chat bubble avatar
+├── galaxy.png       — fullscreen background image (optional)
+└── .gitkeep
+```
+
+## robot_girl.png
+
+This image serves as Lumina AI's avatar in two places:
+
+- **Sidebar panel** — rendered as an `<img>` element at 80×80 px with `border-radius: 50%` and a pink border (`#f9a8d4`), giving it a circular framed appearance.
+- **Chat message bubbles** — displayed next to every assistant message at 52×52 px with a purple border (`#c026d3`) and a glow effect.
+
+The image is read once at startup and embedded directly in the page HTML as a base64 data URI, so no web server or static file hosting is needed.
+
+**Recommended format:** PNG with transparency support  
+**Recommended maximum size:** 512×512 px
+
+## galaxy.png
+
+This image is used as the CSS `background-image` for the fullscreen `#galaxy-bg` overlay. It is stretched to cover the entire viewport using `background-size: cover`.
+
+If `galaxy.png` is missing from the `assets/` directory, Lumina AI falls back to a CSS radial-gradient defined in `Main.py`:
+
+```python
+return "background: radial-gradient(ellipse at 20% 30%, #1a0040 0%, #04000e 55%), radial-gradient(ellipse at 80% 70%, #0a001a 0%, transparent 60%);"
+```
+
+This means `galaxy.png` is the only optional asset — the app runs without it.
+
+**Recommended format:** PNG or JPG  
+**Recommended resolution:** 1920×1080 px
+
+## How images are loaded
+
+Both assets are read by the `get_img_base64()` function in `Main.py`, which opens the file in binary mode, base64-encodes the content, and returns an HTML-ready data URI string:
+
+```python
+def get_img_base64(path: str) -> str:
+    """Lee una imagen y la devuelve en base64 para usarla en HTML."""
+    try:
+        with open(path, "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+            # Detectar extensión
+            if path.lower().endswith(".png"):
+                mime = "image/png"
+            elif path.lower().endswith(".jpg") or path.lower().endswith(".jpeg"):
+                mime = "image/jpeg"
+            else:
+                mime = "image/png"
+            return f"data:{mime};base64,{data}"
+    except FileNotFoundError:
+        st.error(f"No se encontró la imagen en {path}. Verifica la ruta.")
+        return ""
+```
+
+The function detects the MIME type from the file extension. Files that do not end in `.jpg`, `.jpeg`, or `.png` are treated as PNG. If the file is not found, Streamlit displays an error banner and the function returns an empty string, which causes the avatar `<img>` elements to render broken.
+
+## Replacing the assets
+
+<Steps>
+  <Step title="Prepare your replacement images">
+    Prepare your images in PNG format. For `robot_girl.png`, a square image with a transparent or circular-cropped background works best, since it is displayed as a circle via CSS. For `galaxy.png`, use a dark, high-contrast image at 1920×1080 px so that the lighter text remains readable.
+  </Step>
+  <Step title="Replace robot_girl.png">
+    Copy your new avatar into the `assets/` folder, keeping the exact filename `robot_girl.png`:
+
+    ```bash
+    cp /path/to/your/avatar.png assets/robot_girl.png
+    ```
+
+    The original file is overwritten. If you want to keep the original, rename or copy it first.
+  </Step>
+  <Step title="Optionally replace galaxy.png">
+    If you want a custom background, copy your image into `assets/` as `galaxy.png`:
+
+    ```bash
+    cp /path/to/your/background.png assets/galaxy.png
+    ```
+
+    To remove the custom background and fall back to the CSS gradient, delete `galaxy.png`:
+
+    ```bash
+    rm assets/galaxy.png
+    ```
+  </Step>
+  <Step title="Restart the app">
+    Images are read once at startup, so you must restart Streamlit to see the changes:
+
+    ```bash
+    streamlit run Main.py
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Keep image files under 2 MB. Because both assets are embedded as base64 strings directly in the HTML, large files increase the size of every page response. A 2 MB PNG becomes roughly 2.7 MB of base64 text, which slows initial page load noticeably, especially on mobile connections.
+</Tip>

@@ -1,0 +1,115 @@
+---
+title: "School subjects Lumina AI covers"
+description: "Lumina AI supports 18+ school subjects with curated responses covering math, sciences, humanities, languages, and personal development topics."
+---
+
+Lumina AI is built around the Peruvian secondary school curriculum. Every subject in the app maps to a curated set of subtopics, each backed by detailed intent responses in `respuestas.json` and keyword detection in `chatbot.py`. Students can browse subjects visually through the Materias panel, or simply ask a question naturally and let Lumina match the intent automatically.
+
+## The Materias panel
+
+The Materias panel is a subject browser that appears as a collapsible side column in the Chat page. Toggle it with the **Materias →** button in the top-right corner of the chat area. When open, the panel occupies roughly one-third of the screen width alongside the chat thread.
+
+Inside the panel, each of the 18 subjects is an expandable accordion. Clicking a subject expands it to reveal its subtopics. Clicking a subtopic button sends the following message to the chat:
+
+```
+Explícame {materia} - {subtema}
+```
+
+For example, clicking **Cinemática** under **Física** sends `Explícame ⁜ Física - Cinemática` and triggers a full explanation from the chatbot.
+
+<Tip>
+You do not need the Materias panel to get subject help. You can ask conversationally—"¿Cómo se calcula el área de un círculo?" or "Explícame las leyes de Newton"—and Lumina will match your intent automatically. The panel is most useful when you want to explore a subject you are not sure how to phrase.
+</Tip>
+
+## All 18 subjects and subtopics
+
+| Subject | Subtopics |
+|---|---|
+| **Física** | Cinemática, Dinámica, Electricidad, Ondas |
+| **Aritmética** | Números, Fracciones, Porcentajes, Razones |
+| **Geometría** | Triángulos, Círculos, Polígonos, Volúmenes |
+| **Trigonometría** | Seno/Coseno, Tangente, Identidades |
+| **Álgebra** | Ecuaciones, Polinomios, Factorización |
+| **Química** | Átomos, Enlaces, Reacciones, Estequiometría |
+| **R. Matemático** | Sucesiones, Lógica, Problemas |
+| **R. Verbal** | Comprensión, Sinónimos, Analogías |
+| **Literatura** | Géneros, Figuras Lit., Autores |
+| **Historia Perú** | Preinca, Inca, Colonial, República |
+| **Historia Universal** | Antigüedad, Medievo, Moderna |
+| **Economía** | Micro, Macro, Mercados, Finanzas |
+| **Desarrollo Personal** | Autoestima, Metas, Hábitos |
+| **Ciudadanía** | Derechos, Constitución, Democracia |
+| **Inglés** | Gramática, Vocabulario, Reading |
+| **Arte** | Historia del Arte, Música, Teatro |
+| **Educación Física** | Atletismo, Deportes, Salud |
+| **Educ. Trabajo** | Emprendimiento, Ofimática, Gestión |
+
+## Keyword-based intent matching
+
+When you type a question directly in the chat, Lumina uses a two-layer detection system defined in `chatbot.py`. The primary layer is a Keras neural network; if its confidence score falls below the threshold, a keyword fallback scans your message for topic words.
+
+The `_KEYWORD_MAP` in `chatbot.py` defines the keyword categories Lumina recognizes. The table below shows how natural language maps to subject areas:
+
+<AccordionGroup>
+  <Accordion title="Mathematics and sciences">
+    | Category | Recognized keywords |
+    |---|---|
+    | `matematicas_general` | matemática, matemáticas, números, cálculo, aritmética |
+    | `algebra` | álgebra, ecuación, variable, incógnita, factori, polinomio |
+    | `fracciones` | fracción, fracciones, numerador, denominador, mcm |
+    | `geometria` | geometría, área, perímetro, triángulo, círculo, rectángulo, pitágoras, volumen |
+    | `trigonometria` | trigonometría, seno, coseno, tangente, soh, cah, toa |
+    | `probabilidad` | probabilidad, estadística, media, mediana, moda, varianza |
+    | `biologia` | biología, célula, fotosíntesis, adn, mitosis, meiosis, ecosistema, evolución, gen |
+    | `quimica` | química, átomo, molécula, enlace, ph, ácido, base, tabla periódica, electrón |
+    | `fisica` | física, newton, fuerza, velocidad, aceleración, energía, gravedad, movimiento, potencia |
+  </Accordion>
+  <Accordion title="Humanities and languages">
+    | Category | Recognized keywords |
+    |---|---|
+    | `historia` | historia, guerra, revolución, edad media, renacimiento, conquista, independencia, civilización |
+    | `literatura` | literatura, cuento, novela, metáfora, hipérbole, narrador, género literario, poema, ensayo |
+    | `geografia` | geografía, continente, país, mapa, volcán, terremoto, relieve, atmósfera |
+    | `programacion` | programación, python, código, algoritmo, función, bucle, html, javascript, variable programación |
+  </Accordion>
+  <Accordion title="Study skills and wellbeing">
+    | Category | Recognized keywords |
+    |---|---|
+    | `tecnicas_estudio` | estudiar, técnica estudio, pomodoro, apuntes, memorizar, concentración, resumen, mapa conceptual |
+    | `motivacion` | desmotivado, no puedo, me rindo, para que estudiar, no sirvo, soy malo, cansado de estudiar |
+    | `habitos` | procrastinar, hábito, disciplina, constancia, organización, tiempo, horario |
+    | `examen` | examen, prueba, test, evalúa, mañana tengo, no estudié |
+    | `concentracion` | concentrar, distrae, distracción, celular distrae, enfoque, no me concentro |
+    | `ansiedad_academica` | ansiedad, nervioso examen, bloqueo, me quedo en blanco, pánico |
+    | `salud_mental_estudio` | agotado, burnout, quemado, mucho estudio, necesito descanso |
+  </Accordion>
+  <Accordion title="Other categories">
+    | Category | Recognized keywords |
+    |---|---|
+    | `saludo` | hola, buenas, hey, saludos, buenos dias, buenas tardes, buenas noches |
+    | `despedida` | adios, bye, hasta luego, chao, nos vemos, me voy |
+    | `curiosidades` | curiosidad, dato curioso, algo interesante, sorpréndeme, sabías que |
+    | `agradecimiento` | gracias, muchas gracias, me ayudaste, excelente, muy bien |
+    | `chiste` | chiste, gracioso, hazme reír, algo divertido |
+    | `no_entendido` | no entiendo, no comprendo, explica de nuevo, repite, más simple |
+  </Accordion>
+</AccordionGroup>
+
+## How the intent system works
+
+The intent pipeline runs in cascade order:
+
+<Steps>
+  <Step title="Neural network (high confidence)">
+    The Keras model scores the input against all known intents. If any intent exceeds the **0.60** confidence threshold, that intent is used directly and its response is returned.
+  </Step>
+  <Step title="Keyword fallback">
+    If no intent clears 0.60, the `_keyword_fallback()` function scans the normalized input for matches in `_KEYWORD_MAP`. The category with the most keyword hits wins and is assigned a synthetic probability of `0.50`.
+  </Step>
+  <Step title="Neural network (low confidence)">
+    If keyword matching also finds nothing, the model result is accepted if it exceeds the lower **0.35** threshold.
+  </Step>
+  <Step title="Generic fallback">
+    If all three layers fail, Lumina returns a contextual fallback message that references the most recently matched intent from the conversation, offering to continue on that topic.
+  </Step>
+</Steps>

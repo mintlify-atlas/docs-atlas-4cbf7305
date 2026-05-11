@@ -1,0 +1,122 @@
+---
+title: "Gamification: XP, streaks, and level progression"
+description: "Lumina AI rewards every study session with XP points and tracks daily streaks, advancing students through five levels from Bronze to Diamond."
+---
+
+Lumina AI uses a lightweight gamification layer to encourage consistent study habits. Every message a student sends earns experience points, consecutive daily activity builds a streak counter, and accumulated XP unlocks progressively named levels. All of these stats are visible at a glance in the sidebar, giving students an ongoing sense of progress during each session.
+
+## XP system
+
+Every time a student sends a message—whether a question, a quick-action prompt, or a voice input—Lumina awards **+10 XP**. This is handled by the `update_streak_and_xp()` function in `Main.py`, which is called at the end of every `send_message()` execution:
+
+```python
+def update_streak_and_xp():
+    # streak logic runs first...
+    st.session_state.xp += 10
+```
+
+XP accumulates without a cap. As it crosses level thresholds, the displayed level name updates automatically within the same function call.
+
+## Level progression
+
+XP thresholds map to five named levels, checked in ascending order:
+
+| Level | XP range |
+|---|---|
+| **Bronce** | 0 – 999 XP |
+| **Plata** | 1,000 – 1,999 XP |
+| **Oro** | 2,000 – 3,499 XP |
+| **Platino** | 3,500 – 5,499 XP |
+| **Diamante** | 5,500+ XP |
+
+The level is recalculated on every message using `st.session_state.xp`:
+
+```python
+xp = st.session_state.xp
+if xp < 1000:
+    st.session_state.nivel = "Bronce"
+elif xp < 2000:
+    st.session_state.nivel = "Plata"
+elif xp < 3500:
+    st.session_state.nivel = "Oro"
+elif xp < 5500:
+    st.session_state.nivel = "Platino"
+else:
+    st.session_state.nivel = "Diamante"
+```
+
+## Daily streak
+
+The streak counter tracks how many consecutive days a student has been active. The logic compares today's date against `last_activity_date` stored in session state:
+
+<Steps>
+  <Step title="Same day">
+    If the student sends a message on the same calendar day as their last activity, the streak counter does not change. XP is still awarded.
+  </Step>
+  <Step title="Next consecutive day">
+    If exactly one day has passed since the last activity date, the streak increments by 1 and `last_activity_date` updates to today.
+  </Step>
+  <Step title="Gap of two or more days">
+    If two or more days have passed without any activity, the streak resets to 1 (not 0), representing the current day's fresh start.
+  </Step>
+</Steps>
+
+```python
+if today > last:
+    if (today - last).days == 1:
+        st.session_state.racha += 1
+    else:
+        st.session_state.racha = 1
+    st.session_state.last_activity_date = today.isoformat()
+```
+
+## XP progress bar
+
+The sidebar displays a progress bar showing how far through the current level tier a student has advanced. The percentage is calculated as the XP within the current 1,000-point window, capped at 100:
+
+```python
+xp_pct = min(int((xp % 1000) / 10), 100)
+```
+
+This means a student at 2,340 XP (Oro level) would see `(2340 % 1000) / 10 = 34%` progress toward the next level boundary.
+
+The progress bar is rendered as a styled HTML gradient bar alongside the level name and percentage label:
+
+```
+Nivel Oro    34%
+[████████████░░░░░░░░░░░░░░░░░░░░░]
+```
+
+## Sidebar stats display
+
+The stats section of the sidebar shows three values simultaneously:
+
+<CardGroup cols={2}>
+  <Card title="Días racha" icon="calendar">
+    The current streak count in days. Displayed in a purple-tinted tile.
+  </Card>
+  <Card title="XP ganados" icon="diamond">
+    Total accumulated XP across the session. Displayed in a violet-tinted tile.
+  </Card>
+</CardGroup>
+
+Below the two tiles, the progress bar shows `Nivel {nivel}` on the left and `{xp_pct}%` on the right, with the gradient fill updating dynamically as XP increases.
+
+## Default starting values
+
+When a new session is initialized, `init_session()` sets the following default values:
+
+```python
+defaults = {
+    "racha": 12,
+    "xp": 680,
+    "nivel": "Bronce",
+    "last_activity_date": date.today().isoformat(),
+}
+```
+
+A new user starts with a 12-day streak and 680 XP already in the Bronce tier. These values are hardcoded defaults.
+
+<Note>
+The default values of `racha=12` and `xp=680` are hardcoded in the current implementation and reset whenever the Streamlit session ends (for example, on page refresh). In a production deployment, these values would be persisted to a database or user profile so progress is preserved across sessions.
+</Note>

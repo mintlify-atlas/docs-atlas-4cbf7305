@@ -1,0 +1,89 @@
+---
+title: "Retrain the Lumina AI model after updating intents"
+description: "Run training_chatbot.py to rebuild chatbot_model.h5, words.pkl, and classes.pkl after adding or editing intents in respuestas.json."
+---
+
+Retraining rebuilds the neural network from scratch using the intents defined in `respuestas.json`. You need to retrain whenever you add new intents, edit existing patterns, or remove outdated entries — any change to the intent data requires a new model before Lumina AI can recognize it.
+
+## Prerequisites
+
+Make sure the following Python packages are installed before running the training script:
+
+- `tensorflow` and `keras` — neural network architecture and training
+- `nltk` — tokenization and lemmatization
+- `numpy` — numerical array operations
+
+Install them with:
+
+```bash
+pip install tensorflow nltk numpy
+```
+
+## Steps
+
+<Steps>
+  <Step title="Edit respuestas.json">
+    Add or update intent objects in `respuestas.json`. Each intent needs a `tag`, a list of `patterns`, and a list of `responses`. See the [intents configuration guide](/configuration/intents) for the full schema and examples.
+  </Step>
+  <Step title="Run the training script">
+    From the project root directory, execute:
+
+    ```bash
+    python training_chatbot.py
+    ```
+  </Step>
+  <Step title="Watch the output">
+    The script prints progress at each stage. You will see the vocabulary count, intent count, training sample count, and final accuracy percentage. If any stage fails, the error message will appear here.
+  </Step>
+  <Step title="Restart the app">
+    After training completes, restart the Streamlit application to load the new model:
+
+    ```bash
+    streamlit run Main.py
+    ```
+  </Step>
+</Steps>
+
+## What the script produces
+
+Running `training_chatbot.py` writes three files to the project root:
+
+| File | Description |
+|---|---|
+| `chatbot_model.h5` | The trained Keras neural network weights and architecture |
+| `words.pkl` | Serialized vocabulary list used for bag-of-words vectorization |
+| `classes.pkl` | Serialized list of all intent tag names |
+
+These files are loaded at startup by `chatbot.py`. All three must be present and consistent with each other — they are always regenerated together.
+
+## Training output example
+
+A successful training run prints the following to the console:
+
+```text
+📖 Procesando intents...
+✅ Vocabulario: N palabras | Intents: N
+🔧 Generando datos de entrenamiento...
+✅ Muestras de entrenamiento: N
+🧠 Construyendo modelo...
+🚀 Entrenando (esto puede tardar 1-3 minutos)...
+✅ ¡Modelo guardado como chatbot_model.h5!
+   Accuracy final: XX.XX%
+🎉 Listo. Ahora puedes ejecutar: streamlit run main.py
+```
+
+The vocabulary count reflects the unique lemmatized tokens across all patterns. The sample count equals the total number of pattern strings across all intents after shuffling.
+
+## Training hyperparameters
+
+The model is trained with the following fixed hyperparameters defined in `training_chatbot.py`:
+
+| Parameter | Value | Description |
+|---|---|---|
+| `epochs` | `300` | Number of full passes through the training data |
+| `batch_size` | `8` | Samples processed per gradient update |
+| `learning_rate` | `0.005` | SGD optimizer step size (with Nesterov momentum `0.9`) |
+
+<Warning>
+Running `training_chatbot.py` overwrites the existing `chatbot_model.h5`, `words.pkl`, and `classes.pkl` files without creating a backup. If you need to preserve the current model, copy those three files to a safe location before retraining.
+</Warning>

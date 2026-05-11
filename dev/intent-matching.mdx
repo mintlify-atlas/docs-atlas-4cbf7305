@@ -1,0 +1,93 @@
+---
+title: "Intent matching: cascade strategy and fallbacks"
+description: "Lumina AI uses a three-stage cascade to match student input: a neural network, a keyword map fallback, and contextual fallback responses."
+---
+
+When a student sends a message, `chatbot.py`'s `predict_class()` function runs a cascade of matching strategies to ensure there is always a relevant response, even when the neural network is not confident.
+
+## Three-stage cascade
+
+```python chatbot.py
+def predict_class(sentence: str) -> list[dict]:
+    if not sentence.strip():
+        return []
+
+    bow = bag_of_words(sentence)
+    raw = model.predict(np.array([bow]), verbose=0)[0]
+
+    # Stage 1: high-confidence neural network prediction
+    high_results = [
+        {'intent': classes[i], 'probability': str(r)}
+        for i, r in enumerate(raw)
+        if r > _THRESHOLD_HIGH
+    ]
+    high_results.sort(key=lambda x: float(x['probability']), reverse=True)
+    if high_results:
+        _context.append(high_results[0]['intent'])
+        return high_results
+
+    # Stage 2: keyword fallback
+    kw_tag = _keyword_fallback(sentence)
+    if kw_tag:
+        _context.append(kw_tag)
+        return [{'intent': kw_tag, 'probability': '0.50'}]
+
+    # Stage 3: low-confidence neural network
+    low_results = [
+        {'intent': classes[i], 'probability': str(r)}
+        for i, r in enumerate(raw)
+        if r > _THRESHOLD_LOW
+    ]
+    low_results.sort(key=lambda x: float(x['probability']), reverse=True)
+    if low_results:
+        _context.append(low_results[0]['intent'])
+        return low_results
+
+    return []
+```
+
+| Stage | Method | Threshold | Fallback trigger |
+|-------|--------|-----------|-----------------|
+| 1 | Neural network | > 0.60 | Score too low |
+| 2 | Keyword map | Fixed 0.50 | No keyword match |
+| 3 | Neural network | > 0.35 | Score too low |
+| 4 | Contextual fallback | — | Always |
+
+## Keyword map
+
+`_keyword_fallback()` normalizes the input (removing accents for Spanish text) then scans for keywords:
+
+```python chatbot.py
+_KEYWORD_MAP: dict[str, list[str]] = {
+    "saludo":            ["hola", "buenas", "hey", "saludos", ...],
+    "matematicas_general":["matematica", "matematicas", "numeros", ...],
+    "fisica":            ["fisica", "newton", "fuerza", "velocidad", ...],
+    # ... 26 total categories
+}
+```
+
+The tag with the most keyword matches wins.
+
+## Context tracking
+
+The last 3 matched intents are stored in a deque:
+
+```python chatbot.py
+_context: deque[str] = deque(maxlen=3)
+```
+
+When the cascade fails entirely, `_build_fallback()` uses the most recent context to offer a relevant follow-up:
+
+```python chatbot.py
+_CONTEXT_FOLLOWUP = {
+    "matematicas_general": "Si quieres, podemos continuar con matemáticas...",
+    "biologia":            "Si tienes más preguntas sobre biología...",
+    "fisica":              "¿Quieres que sigamos con física?...",
+    "historia":            "¿Seguimos explorando la historia?...",
+    "tecnicas_estudio":    "¿Quieres que diseñemos juntos un plan de estudio?...",
+}
+```
+
+<Note>
+  `Main.py` also contains a simpler `match_intent()` function that uses word-overlap scoring directly against `respuestas.json` patterns — this is the UI's lightweight path. `chatbot.py`'s `predict_class()` is the full ML engine, designed for deeper integration.
+</Note>

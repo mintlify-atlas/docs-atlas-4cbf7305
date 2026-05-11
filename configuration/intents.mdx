@@ -1,0 +1,152 @@
+---
+title: "Customize Lumina AI intents in respuestas.json"
+description: "Learn how to add, edit, and remove intents in respuestas.json to customize what topics Lumina AI understands and how it responds to students."
+---
+
+Lumina AI's knowledge is defined entirely by the intents in `respuestas.json`. Each intent describes a topic the chatbot recognizes — the example phrases students might use to raise that topic, and the replies Lumina AI can give. Editing this file is the primary way to expand, restrict, or refine what the chatbot understands and how it communicates.
+
+## File format
+
+`respuestas.json` contains a single top-level key, `"intents"`, whose value is an array of intent objects. Every object in the array follows the same three-field structure:
+
+```json
+{
+  "intents": [
+    { "tag": "...", "patterns": [...], "responses": [...] },
+    ...
+  ]
+}
+```
+
+### Example intent
+
+The following is the `algebra_ecuaciones` intent taken directly from `respuestas.json`:
+
+```json
+{
+  "tag": "algebra_ecuaciones",
+  "patterns": [
+    "Ecuaciones",
+    "Despejar x",
+    "Resolver ecuación",
+    "Ecuación de primer grado",
+    "Ecuación lineal",
+    "Cómo despejar"
+  ],
+  "responses": [
+    "Resolver una ecuación de primer grado es como despejar una incógnita. Ejemplo: 2x + 5 = 13. Paso 1: restas 5 a ambos lados → 2x = 8. Paso 2: divides entre 2 → x = 4. La clave es hacer la misma operación en ambos lados de la igualdad. ¿Tienes un ejercicio concreto?",
+    "Imagina que la ecuación es una balanza equilibrada. Si sumas, restas, multiplicas o divides lo mismo en ambos platillos, la balanza sigue equilibrada. Eso es despejar. Dame un problema y lo resolvemos juntos paso a paso."
+  ]
+}
+```
+
+## Field descriptions
+
+<ParamField path="tag" type="string" required>
+  A unique string identifier for this intent. Must not duplicate any other tag in the array. The tag is used internally to match a prediction to the correct set of responses and to power the keyword fallback map in `chatbot.py`.
+</ParamField>
+
+<ParamField path="patterns" type="string[]" required>
+  An array of example phrases that a student might type to trigger this intent. These are tokenized and lemmatized during training to build the bag-of-words vocabulary. More varied patterns — different sentence lengths, synonyms, and phrasings — lead to better recognition accuracy.
+</ParamField>
+
+<ParamField path="responses" type="string[]" required>
+  An array of possible replies. When the intent is matched, Lumina AI selects one response at random using `random.choice()`. Providing multiple responses gives the chatbot variety so it does not feel repetitive across a conversation.
+</ParamField>
+
+## How intent matching works
+
+When a student sends a message, Lumina AI processes it through a three-stage cascade defined in `chatbot.py`:
+
+1. **Neural network prediction** — the message is tokenized and lemmatized, then converted to a binary bag-of-words vector over the full training vocabulary. The Keras model (`chatbot_model.h5`) outputs a confidence score for every intent class. If any class exceeds `_THRESHOLD_HIGH = 0.60`, that intent is used directly.
+
+2. **Keyword fallback** — if no class clears the high threshold, `chatbot.py` checks `_KEYWORD_MAP`, a hardcoded dictionary of keywords per tag. If one or more keywords are found in the normalized message, the highest-scoring tag is returned with a synthetic confidence of `0.50`.
+
+3. **Low-confidence fallback** — if neither stage produces a result, intents that exceed `_THRESHOLD_LOW = 0.35` are considered. If still nothing matches, a contextual fallback message is returned.
+
+Because the neural network is trained on the `patterns` arrays, **the more varied and representative your patterns are, the better the model's accuracy**. Aim for at least five to eight distinct phrasings per intent, covering different vocabulary and sentence structures a real student might use.
+
+## Adding a new intent
+
+<Steps>
+  <Step title="Open respuestas.json">
+    Open `respuestas.json` in any text editor. Locate the closing `]` of the `"intents"` array (the last intent ends with `}` before it).
+  </Step>
+  <Step title="Add a new intent object">
+    Insert a comma after the last intent's closing `}`, then add your new object. Choose a unique `tag`, write at least five to eight varied `patterns`, and provide two or more `responses` so the bot has variety:
+
+    ```json
+    {
+      "tag": "estadistica_basica",
+      "patterns": [
+        "Qué es la estadística",
+        "Media aritmética",
+        "Cómo calcular la mediana",
+        "Moda de un conjunto de datos",
+        "Medidas de tendencia central",
+        "Varianza y desviación estándar",
+        "Estadística descriptiva",
+        "Datos y frecuencias"
+      ],
+      "responses": [
+        "La estadística descriptiva resume datos con medidas de tendencia central: la media (promedio), la mediana (valor central al ordenar los datos) y la moda (valor más frecuente). La varianza mide la dispersión; la desviación estándar es su raíz cuadrada. Dame un conjunto de números y calculamos todo juntos.",
+        "Para calcular la media, suma todos los valores y divide entre la cantidad. La mediana requiere ordenar los datos primero. La moda es el valor que más veces aparece. ¿Qué medida necesitas calcular?"
+      ]
+    }
+    ```
+  </Step>
+  <Step title="Save the file">
+    Save `respuestas.json`. Make sure the JSON is valid — each intent object is separated by a comma, and the overall structure is `{ "intents": [ ... ] }`.
+  </Step>
+  <Step title="Retrain the model">
+    Run the training script from the project root. This re-reads all patterns, rebuilds the vocabulary, and overwrites `chatbot_model.h5`, `words.pkl`, and `classes.pkl`:
+
+    ```bash
+    python training_chatbot.py
+    ```
+  </Step>
+  <Step title="Restart the app">
+    Start Lumina AI again so it loads the updated model and intent file:
+
+    ```bash
+    streamlit run Main.py
+    ```
+  </Step>
+</Steps>
+
+## Existing intent tags
+
+The following tags are defined in `chatbot.py`'s `_KEYWORD_MAP` and are used as the keyword-fallback targets. Each corresponds to one or more intents in `respuestas.json`:
+
+| Tag | Topic |
+|-----|-------|
+| `saludo` | Greetings |
+| `despedida` | Farewells |
+| `matematicas_general` | General mathematics |
+| `algebra` | Algebra (equations, polynomials, factoring) |
+| `fracciones` | Fractions |
+| `geometria` | Geometry (shapes, area, volume) |
+| `trigonometria` | Trigonometry |
+| `probabilidad` | Probability and statistics |
+| `biologia` | Biology |
+| `quimica` | Chemistry |
+| `fisica` | Physics |
+| `historia` | History |
+| `literatura` | Literature |
+| `programacion` | Programming |
+| `geografia` | Geography |
+| `tecnicas_estudio` | Study techniques |
+| `motivacion` | Motivation |
+| `habitos` | Study habits |
+| `examen` | Exams and tests |
+| `concentracion` | Focus and concentration |
+| `curiosidades` | Fun facts and curiosities |
+| `agradecimiento` | Gratitude and thanks |
+| `chiste` | Jokes and humor |
+| `ansiedad_academica` | Academic anxiety |
+| `salud_mental_estudio` | Mental health while studying |
+| `no_entendido` | Clarification requests |
+
+<Warning>
+  Adding or editing intents requires retraining the model. Running `python training_chatbot.py` overwrites `chatbot_model.h5`, `words.pkl`, and `classes.pkl` with files trained on the current contents of `respuestas.json`. The previous model is not backed up automatically — if you want to keep it, copy `chatbot_model.h5` before retraining.
+</Warning>

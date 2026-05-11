@@ -1,0 +1,60 @@
+---
+title: "Lumina AI architecture and codebase overview"
+description: "Understand how Lumina AI's three Python modules work together: the Streamlit frontend, Keras inference engine, and intent training script."
+---
+
+Lumina AI is composed of three Python files and a set of data files that work together to deliver an AI-powered study assistant. Understanding how these pieces connect helps you customize, extend, or retrain the chatbot.
+
+## Project structure
+
+| File | Role |
+|------|------|
+| `Main.py` | Streamlit UI, session state, page routing, audio/PDF helpers |
+| `chatbot.py` | Neural network inference engine — `predict_class`, `get_response`, `bag_of_words` |
+| `training_chatbot.py` | One-time training script that produces the model and vocabulary files |
+| `respuestas.json` | Intent knowledge base — `tag`, `patterns`, `responses` arrays |
+| `chatbot_model.h5` | Trained Keras model weights (HDF5 format) |
+| `words.pkl` | Serialized vocabulary list |
+| `classes.pkl` | Serialized list of intent tag names |
+
+## Data flow
+
+When a student sends a message, the following sequence runs:
+
+1. `Main.py:send_message()` receives the raw text
+2. If a PDF is loaded, `query_pdf()` checks for a relevant paragraph first
+3. Otherwise, `Main.py:get_response()` calls `match_intent()` — a simple word-overlap scorer used directly in the UI layer
+4. `match_intent()` returns the best-matching intent from `respuestas.json`
+5. A random response from that intent's `responses` array is returned
+6. XP and streak are updated via `update_streak_and_xp()`
+
+The full ML inference pipeline in `chatbot.py` (neural network + keyword fallback) is the more powerful engine designed for production use. `Main.py` includes its own lightweight `match_intent()` for simplicity.
+
+## Page routing
+
+The sidebar navigation sets `st.session_state.current_page` to one of these values:
+
+| Page key | Description |
+|----------|-------------|
+| `Chat` | Main AI chat interface |
+| `Resumen` | Topic summary generator |
+| `Materias` | Subject browser (redirects to chat panel) |
+| `Quiz` | Multiple-choice quiz |
+| `Memorizar` | Memory technique tips |
+| `Motivación` | Rotating motivational phrases |
+| `Ajustes` | Settings (theme, notifications) |
+
+<CardGroup cols={2}>
+  <Card title="Neural network model" icon="brain" href="/dev/neural-network">
+    Architecture, training config, and inference pipeline details.
+  </Card>
+  <Card title="Intent matching" icon="magnifying-glass" href="/dev/intent-matching">
+    The three-stage cascade: neural net, keyword fallback, and context fallback.
+  </Card>
+  <Card title="Training the model" icon="rotate" href="/dev/training">
+    How to retrain the Keras model after updating respuestas.json.
+  </Card>
+  <Card title="Extending intents" icon="plus" href="/dev/extending-intents">
+    Add new topics and responses to the intent knowledge base.
+  </Card>
+</CardGroup>

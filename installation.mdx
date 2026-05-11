@@ -1,0 +1,118 @@
+---
+title: "Install Lumina AI and its dependencies"
+description: "Set up Lumina AI's Python environment, install required packages, and configure optional voice and PDF features on any operating system."
+---
+
+This page covers everything you need to install Lumina AI and its dependencies from scratch. It explains each required package, documents the model and asset files the app expects to find at runtime, and provides platform-specific instructions for optional features like voice input and audio playback.
+
+## Python version requirement
+
+Lumina AI requires **Python 3.8 or higher**. You can check your current version with:
+
+```bash
+python --version
+```
+
+## Core installation
+
+Install all Python dependencies declared in `requirements.txt` with a single command:
+
+```bash
+pip install -r requirements.txt
+```
+
+The file specifies the following packages:
+
+| Package | Version | Purpose |
+|---|---|---|
+| `streamlit` | `>=1.28.0` | Web UI framework that serves the chat interface |
+| `PyPDF2` | `>=3.0.0` | Extracts text from uploaded PDFs for context-aware answers |
+| `gTTS` | `>=2.3.0` | Converts Lumina AI's responses to spoken audio (Google Text-to-Speech) |
+| `SpeechRecognition` | `>=3.10.0` | Transcribes microphone input to text |
+| `pydub` | `>=0.25.0` | Converts audio formats (e.g., WebM to WAV) before transcription |
+
+### ML engine dependencies
+
+`chatbot.py` — the neural network inference engine — requires three additional packages that are **not listed in `requirements.txt`**. Install them separately if you need to run `chatbot.py` directly or retrain the model:
+
+```bash
+pip install tensorflow numpy nltk
+```
+
+| Package | Purpose |
+|---|---|
+| `tensorflow` / `keras` | Loads and runs the trained `chatbot_model.h5` neural network |
+| `numpy` | Builds the bag-of-words input vectors for the model |
+| `nltk` | Tokenizes and lemmatizes user input before inference |
+
+## Platform-specific notes
+
+Voice input (`SpeechRecognition` + `pydub`) requires **ffmpeg** to convert audio formats. The core chat and PDF features work without it.
+
+<Tabs>
+  <Tab title="Windows">
+    Install ffmpeg using [Chocolatey](https://chocolatey.org):
+
+    ```powershell
+    choco install ffmpeg
+    ```
+
+    Alternatively, download the ffmpeg binary from [ffmpeg.org](https://ffmpeg.org/download.html) and add it to your `PATH` manually.
+  </Tab>
+  <Tab title="macOS">
+    Install ffmpeg using [Homebrew](https://brew.sh):
+
+    ```bash
+    brew install ffmpeg
+    ```
+  </Tab>
+  <Tab title="Linux">
+    Install ffmpeg using your distribution's package manager. On Debian/Ubuntu:
+
+    ```bash
+    sudo apt install ffmpeg
+    ```
+
+    On Fedora/RHEL:
+
+    ```bash
+    sudo dnf install ffmpeg
+    ```
+  </Tab>
+</Tabs>
+
+## Required files
+
+Lumina AI expects the following files to be present in the project root at runtime.
+
+### Model files
+
+<Warning>
+  If `chatbot_model.h5`, `words.pkl`, or `classes.pkl` are missing, the ML engine will fail to load and the chatbot will not function. Run the training script to regenerate them:
+
+  ```bash
+  python training_chatbot.py
+  ```
+
+  This script reads `respuestas.json` and produces all three model files. Training runs for 300 epochs and typically completes in one to three minutes.
+</Warning>
+
+| File | Description |
+|---|---|
+| `chatbot_model.h5` | The trained Keras Sequential model (three Dense layers with Dropout, softmax output) |
+| `words.pkl` | Pickle of the sorted vocabulary list built from intent patterns during training |
+| `classes.pkl` | Pickle of the sorted intent class labels built from intent tags during training |
+| `respuestas.json` | JSON file defining all intents: each intent has a `tag`, a list of `patterns`, and a list of `responses` |
+
+### UI assets
+
+The following image files are loaded by `Main.py` at startup. The app encodes them as Base64 and embeds them directly in the HTML so they render without a web server.
+
+<CardGroup cols={2}>
+  <Card title="assets/robot_girl.png" icon="image">
+    Avatar image displayed in the sidebar and alongside assistant messages in the chat window.
+  </Card>
+  <Card title="assets/galaxy.png" icon="image">
+    Background image for the galactic UI theme. If missing, the app falls back to a CSS radial-gradient background automatically.
+  </Card>
+</CardGroup>

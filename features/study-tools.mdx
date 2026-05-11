@@ -1,0 +1,101 @@
+---
+title: "Study tools: summaries, quizzes, and memorization"
+description: "Lumina AI includes a summary generator, interactive quiz mode, memorization techniques, and motivational support to power your study sessions."
+---
+
+Beyond the main chat, Lumina AI ships with four dedicated study pages accessible from the left sidebar: Resumen, Quiz, Memorizar, and Motivación. Each page is a focused tool designed for a specific stage of the study cycle—from generating structured summaries to testing knowledge, reinforcing memory, and staying mentally energized. These pages complement the conversational chat by offering more structured, task-oriented interactions.
+
+<Tip>
+You can access study help without navigating away from the chat. The quick-action buttons in the sidebar—"Haz un resumen claro del tema", "Hazme un quiz sobre esto", "Dame técnicas de memorización", and "Dame motivación para estudiar"—trigger the same content instantly inside the chat conversation.
+</Tip>
+
+## Summary generator (Resumen)
+
+The Resumen page provides a topic-based summary generator. Enter any topic in the text field and click **Generar** to receive a structured summary with the following sections:
+
+- **Contexto histórico** — background and setting
+- **Causas principales** — key causes or contributing factors
+- **Consecuencias** — outcomes and effects
+
+```
+Resumen sobre {topic}
+
+- Contexto histórico
+- Causas principales
+- Consecuencias
+
+¿Necesitas más detalles?
+```
+
+The summary is displayed using `st.success()` and ends with an invitation to ask follow-up questions in the chat. This format is intentionally generic so it applies equally to historical events, scientific concepts, literary works, and other school topics.
+
+## Quiz mode (Quiz)
+
+The Quiz page presents multiple-choice questions and tracks the student's score. The current implementation includes a sample question:
+
+**¿Quién pintó la Mona Lisa?**
+- Picasso
+- Da Vinci *(correct)*
+- Van Gogh
+
+The question is rendered with `st.radio()`. When the student clicks **Ver resultado**, Streamlit launches a balloon animation (`st.balloons()`) and displays the final score (`Puntuación: {score}/1`).
+
+<Note>
+The Quiz page currently contains one example question. You can also trigger quiz-style interactions directly in the chat by clicking the **Hazme un quiz sobre esto** quick-action button in the sidebar, which sends a quiz request to the chatbot and gets an interactive response.
+</Note>
+
+## Memorization techniques (Memorizar)
+
+The Memorizar page introduces the **palace of memory** technique—a classical mnemonic strategy where you associate abstract concepts with vivid mental images placed in a familiar location.
+
+```
+Prueba la técnica del palacio de la memoria:
+asocia conceptos a lugares conocidos.
+```
+
+The chat also delivers a richer set of memorization techniques through the `tecnicas_estudio` intent in `respuestas.json`. When a student asks about studying or memorization, Lumina can explain:
+
+- **Repetición espaciada** — Review material today, in 2 days, then in a week. Spaced intervals exploit the spacing effect to move knowledge into long-term memory.
+- **Práctica de recuperación** — Close the book and explain the topic to yourself from memory. This active recall approach is more effective than re-reading.
+- **Técnica Pomodoro** — Study in 25-minute focused blocks followed by 5-minute breaks. Reduces fatigue and maintains concentration.
+- **Enseñar lo aprendido** — Explain the material as if you were the teacher. Gaps in your explanation reveal gaps in your understanding.
+
+## Motivation (Motivación)
+
+The Motivación page displays a randomly chosen motivational phrase from a fixed array each time the page loads:
+
+```python
+frases = [
+    "El éxito es la suma de pequeños esfuerzos",
+    "Hoy es un buen día para aprender",
+    "Confía en tu proceso"
+]
+st.markdown(f"### ✦ {random.choice(frases)}")
+```
+
+A new phrase is selected on each page visit or app rerun, so students get a different message each time they navigate to the page.
+
+## Exam anxiety support
+
+The `ansiedad_examenes` intent in `respuestas.json` provides targeted support for students experiencing test anxiety. Lumina's responses include:
+
+<Tabs>
+  <Tab title="Breathing technique">
+    The **4-7-8 breathing technique**: inhale for 4 seconds, hold for 7 seconds, exhale for 8 seconds. This activates the parasympathetic nervous system and reduces the physiological stress response before studying or before an exam.
+  </Tab>
+  <Tab title="Memory block strategy">
+    When a student goes blank during an exam, Lumina explains that stress blocks memory retrieval—not knowledge itself. The strategy is to write down whatever you *do* remember on paper first. This physical act re-activates related memory pathways and helps recall the rest.
+  </Tab>
+  <Tab title="Practice exams">
+    Lumina offers to simulate an exam on any topic the student specifies. Practice under exam-like conditions reduces anxiety by making the real test feel more familiar. Ask "Hazme un quiz sobre [tema]" to start.
+  </Tab>
+</Tabs>
+
+## Study habits
+
+The `habitos_estudio` intent addresses procrastination and habit formation with evidence-based strategies:
+
+- **2-minute rule** — If a task takes less than 2 minutes, do it immediately. For longer tasks, commit to doing only the first 2 minutes. Starting is always the hardest part, and the rule lowers the psychological barrier to beginning.
+- **Habit triggers** — Pair studying with a consistent cue (for example: "After dinner, I study for 20 minutes"). The cue becomes a behavioral trigger over time.
+- **Micro-steps** — Break tasks into absurdly small steps: "open the notebook", then "read the first paragraph". Each small completion builds momentum.
+- **Immediate rewards** — A small reward after completing a session reinforces the habit loop and makes future sessions easier to start.

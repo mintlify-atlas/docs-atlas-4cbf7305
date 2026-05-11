@@ -1,0 +1,71 @@
+{
+  "projectType": "ai-ml",
+  "projectName": "Lumina AI",
+  "projectDescription": "An intelligent educational chatbot built with Streamlit and a neural network that helps students across all school subjects while motivating them to keep learning.",
+  "theme": "almond",
+  "primaryColor": "#c026d3",
+  "lightColor": "#e040fb",
+  "darkColor": "#7c3aed",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart", "installation"]
+          },
+          {
+            "group": "Features",
+            "pages": ["features/chat", "features/subjects", "features/study-tools", "features/gamification"]
+          },
+          {
+            "group": "Configuration",
+            "pages": ["configuration/intents", "configuration/assets", "configuration/settings"]
+          }
+        ]
+      },
+      {
+        "tab": "Developer Guide",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": ["dev/overview", "dev/neural-network", "dev/intent-matching"]
+          },
+          {
+            "group": "Training",
+            "pages": ["dev/training", "dev/extending-intents"]
+          },
+          {
+            "group": "API Reference",
+            "pages": ["dev/api/chatbot", "dev/api/main"]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "AI-powered intent classification using a trained neural network (Keras/TensorFlow)",
+    "Pattern-matching fallback with keyword detection for robust responses",
+    "Support for 18+ school subjects including Math, Science, History, Literature, and more",
+    "Streamlit-based web UI with a galaxy-themed animated interface",
+    "PDF upload and text extraction for context-aware answers",
+    "Voice input via speech recognition and text-to-speech output",
+    "Gamification system with XP points, streaks, and level progression",
+    "Quick-action sidebar shortcuts (analogies, examples, quizzes, study tips)",
+    "Summary generator, quiz mode, memorization techniques, and motivation pages"
+  ],
+  "publicApiSurface": [
+    "predict_class(sentence: str) -> list[dict]",
+    "get_response(intents_list: list[dict], intents_json: dict) -> str",
+    "bag_of_words(sentence: str) -> np.ndarray",
+    "clean_up_sentence(sentence: str) -> list[str]",
+    "match_intent(user_input: str) -> dict | None",
+    "transcribe_audio(audio_bytes: bytes) -> str",
+    "text_to_speech(text: str) -> str | None",
+    "extract_text_from_pdf(pdf_file) -> str",
+    "query_pdf(question: str, pdf_text: str) -> str | None",
+    "training_chatbot.py (CLI script to retrain the model)",
+    "respuestas.json (intent definitions: tag, patterns, responses)"
+  ]
+}

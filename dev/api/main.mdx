@@ -1,0 +1,132 @@
+---
+title: "Main.py helper functions reference"
+description: "Reference for Main.py's utility functions: transcribe_audio, text_to_speech, extract_text_from_pdf, query_pdf, and get_img_base64."
+---
+
+`Main.py` is the Streamlit entry point for Lumina AI and contains several helper functions for audio transcription, text-to-speech synthesis, PDF text extraction, and image encoding. These functions are independent of the chat logic and can be reused or extended for custom integrations.
+
+## transcribe_audio
+
+Transcribes raw audio bytes to text using the Google Speech Recognition API.
+
+```python
+transcribe_audio(audio_bytes: bytes) -> str
+```
+
+<ParamField path="audio_bytes" type="bytes" required>
+  Raw audio file contents as a bytes object. The function attempts to handle any audio format supported by pydub when it is available.
+</ParamField>
+
+**Returns** the transcribed text string. Returns an empty string if transcription fails for any reason (network error, unrecognized audio, missing dependencies).
+
+**Behavior:**
+
+- Uses `SpeechRecognition` with `language="es-ES"` (Spanish, Spain).
+- If `pydub` is installed, the function converts the input bytes to WAV format before recognition, enabling support for WebM and other browser-recorded formats.
+- If `pydub` is not available, the bytes are written to a temporary `.webm` file and passed directly to the recognizer.
+
+<Note>
+Non-WAV audio formats require `ffmpeg` to be installed and accessible on your system `PATH`. If `ffmpeg` is missing, the function displays a Streamlit warning and returns an empty string.
+</Note>
+
+---
+
+## text_to_speech
+
+Synthesizes text to an MP3 audio file using Google Text-to-Speech.
+
+```python
+text_to_speech(text: str) -> str | None
+```
+
+<ParamField path="text" type="string" required>
+  The text string to synthesize. Passed directly to gTTS without preprocessing.
+</ParamField>
+
+**Returns** the file path to a temporary `.mp3` file containing the synthesized audio, or `None` if synthesis fails. The temporary file is created with `tempfile.NamedTemporaryFile` and is not automatically deleted — it persists until the operating system cleans up the temp directory.
+
+Uses `gTTS` with `lang="es"` (Spanish).
+
+---
+
+## extract_text_from_pdf
+
+Extracts all text content from an uploaded PDF file.
+
+```python
+extract_text_from_pdf(pdf_file) -> str
+```
+
+<ParamField path="pdf_file" type="file-like object" required>
+  A file-like object pointing to a PDF. In the Streamlit context this is a `UploadedFile` from `st.file_uploader`, but any object accepted by `PyPDF2.PdfReader` works.
+</ParamField>
+
+**Returns** a single string containing the concatenated text from all pages. Pages are separated by a newline character. Pages that return no text (e.g., scanned image pages) are skipped silently.
+
+Uses `PyPDF2.PdfReader` to iterate all pages and call `page.extract_text()` on each.
+
+---
+
+## query_pdf
+
+Searches extracted PDF text for the paragraph most relevant to a question.
+
+```python
+query_pdf(question: str, pdf_text: str) -> str | None
+```
+
+<ParamField path="question" type="string" required>
+  The user's question. Word tokens are extracted with `re.findall(r'\w+', ...)` and matched case-insensitively against paragraph content.
+</ParamField>
+
+<ParamField path="pdf_text" type="string" required>
+  Full text string returned by `extract_text_from_pdf`. An empty string causes the function to return `None` immediately.
+</ParamField>
+
+**Returns** a formatted string if a relevant paragraph is found, or `None` if no paragraph scores at least 2 matching question words.
+
+The return format is:
+
+```text
+📄 Según tu PDF:
+
+"[paragraph text]"
+```
+
+Paragraphs longer than 500 characters are truncated with a trailing `...`.
+
+**Algorithm:**
+
+1. Split `pdf_text` on blank lines (`\n\s*\n`) to produce a list of paragraphs.
+2. For each paragraph, count how many unique question words appear in it.
+3. Return the paragraph with the highest score, provided that score is `>= 2`.
+
+---
+
+## get_img_base64
+
+Reads an image file and returns it as a data URI string for use in HTML.
+
+```python
+get_img_base64(path: str) -> str
+```
+
+<ParamField path="path" type="string" required>
+  Absolute or relative path to the image file. The MIME type is determined by the file extension.
+</ParamField>
+
+**Returns** a data URI string in the format:
+
+```text
+data:image/png;base64,<base64-encoded-content>
+```
+
+Supported extensions and their MIME types:
+
+| Extension | MIME type |
+|---|---|
+| `.png` | `image/png` |
+| `.jpg`, `.jpeg` | `image/jpeg` |
+| anything else | `image/png` (default) |
+
+Returns an empty string if the file is not found. In the Streamlit context, a `st.error` message is also displayed when the file is missing.
